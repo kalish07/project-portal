@@ -106,7 +106,7 @@ function Login({ onLogin }) {
     }, 100);
 
     try {
-      const response = await fetch("http://localhost:3000/api/students/login", {
+      const response = await fetch("https://project-portal-backend-xtrf.onrender.com/api/students/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
