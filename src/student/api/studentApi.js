@@ -1,7 +1,7 @@
 // src/api/studentApi.js\
 import Cookies from "js-cookie";
 
-const BASE_URL = "http://localhost:3000/api/students";
+const BASE_URL = "https://project-portal-backend-xtrf.onrender.com/api/students";
 
 const getAuthHeaders = () => {
   const token = Cookies.get("token");

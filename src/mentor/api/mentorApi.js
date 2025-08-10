@@ -4,7 +4,7 @@ import Cookies from "js-cookie";
 const API =
   (typeof import.meta !== "undefined" && import.meta?.env?.VITE_API) ||
   process.env.REACT_APP_API ||
-  "http://localhost:3000/api";
+  "https://project-portal-backend-xtrf.onrender.com/api";
 
 const authHdr = () => ({
   Authorization: `Bearer ${Cookies.get("token")}`,

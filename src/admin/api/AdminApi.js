@@ -4,10 +4,10 @@ import Cookies from "js-cookie";
 const API =
   (typeof import.meta !== "undefined" && import.meta?.env?.VITE_API) ||
   process.env.REACT_APP_API ||
-  "http://localhost:3000/api";
+  "https://project-portal-backend-xtrf.onrender.com/api";
 
 export const adminLogin = async ({ email, password }) => {
-  const res = await fetch(`http://localhost:3000/auth/admin/login`, {
+  const res = await fetch(`https://project-portal-backend-xtrf.onrender.com/auth/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),

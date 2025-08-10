@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-const BASE_URL = "http://192.168.31.36:3000/api";
+const BASE_URL = "https://project-portal-backend-xtrf.onrender.com/api";
 
 const getAuthHeaders = () => ({
   "Authorization": `Bearer ${Cookies.get("token")}`,
