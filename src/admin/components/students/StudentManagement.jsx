@@ -107,6 +107,15 @@ const StudentManagement = () => {
       ? [7, 8]
       : [];
 
+  // Helper function to get initials from name
+  const getInitials = (name = "") => {
+    return name
+      .split(" ")
+      .map(word => word[0]?.toUpperCase())
+      .join("")
+      .slice(0, 2);
+  };
+
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -148,10 +157,10 @@ const StudentManagement = () => {
               className="border border-gray-300 px-4 py-2 rounded-md text-sm"
             >
               <option value="All">All Programs</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Data Science">Data Science</option>
-              <option value="Software Engineering">Software Engineering</option>
-              <option value="Cybersecurity">Cybersecurity</option>
+              {Array.from(new Set(students.map(s => s.department_name).filter(Boolean)))
+                .map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
             </select>
 
             <select

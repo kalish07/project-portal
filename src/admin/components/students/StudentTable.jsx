@@ -125,9 +125,17 @@ const StudentTable = forwardRef(
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   <div className="flex items-center gap-x-5 ml-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-white">
-                      {student.student_name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                    </div>
+                    {student.profile_pic_url ? (
+                      <img
+                        src={`${process.env.REACT_APP_API_URL}${student.profile_pic_url}`}
+                        alt={student.student_name}
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-md"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-white">
+                        {student.student_name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
                     {editableRow === index ? (
                       <input
                         type="text"
@@ -160,10 +168,10 @@ const StudentTable = forwardRef(
                       className="border px-2 py-1 rounded w-full text-sm"
                     >
                       <option value="">Select Department</option>
-                      <option value="Cyber-Security">Cyber-Security</option>
-                      <option value="AI/ROBOTICS">AI/ROBOTICS</option>
-                      <option value="AI/ML">AI/ML</option>
-                      <option value="BLOCKCHAIN">BLOCKCHAIN</option>
+                      {Array.from(new Set(localStudents.map(s => s.department_name).filter(Boolean)))
+                        .map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
                     </select>
                   ) : (
                     renderDeptBadge(student.department_name)
