@@ -28,7 +28,7 @@ const Dashboard = () => {
 
   const showAlert = useCallback((type, message, duration = 5000) => {
     setAlert({ show: true, type, message });
-    setTimeout(() => setAlert((prev) => ({ ...prev, show: false })), duration);
+    setTimeout(() => setAlert(prev => ({ ...prev, show: false })), duration);
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -39,29 +39,30 @@ const Dashboard = () => {
     } catch (error) {
       showAlert("error", error.message);
     } finally {
-      setLoading((prev) => ({ ...prev, profile: false }));
+      setLoading(prev => ({ ...prev, profile: false }));
     }
   }, [showAlert]);
 
   const fetchProjects = useCallback(async () => {
     try {
       const data = await getStudentProjects();
-      setRawProjects(data?.projects || {}); // response shape: { projects: { FYP: {...}, PT1: null, ... } }
+      setRawProjects(data?.projects || {});
     } catch (error) {
       showAlert("error", error.message);
     } finally {
-      setLoading((prev) => ({ ...prev, projects: false }));
+      setLoading(prev => ({ ...prev, projects: false }));
     }
-  }, [semester, showAlert]);
+  }, [showAlert]);
 
   const fetchInvitations = useCallback(async () => {
     try {
-      const data = await getStudentInvitations();
-      setInvitations(data);
+      const response = await getStudentInvitations();
+      const incoming = response?.data?.incomingInvitations || [];
+      setInvitations(incoming);
     } catch (error) {
       showAlert("error", error.message);
     } finally {
-      setLoading((prev) => ({ ...prev, invitations: false }));
+      setLoading(prev => ({ ...prev, invitations: false }));
     }
   }, [showAlert]);
 
@@ -96,13 +97,41 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Convert raw object to array for rendering
+  // Convert raw projects to array
   const formattedProjects = Object.entries(rawProjects || {})
     .filter(([_, value]) => value && value.project)
-    .map(([type, value]) => ({
-      ...value,
-      type,
-    }));
+    .map(([type, value]) => ({ ...value, type }));
+
+  // Build current team members and mentor from first project with a team
+  const currentProject = formattedProjects.find(p => p.team);
+  let teamData = null;
+  if (currentProject) {
+    const { team, students } = currentProject;
+    const members = students
+      ? [
+          {
+            ...students.student1,
+            id: team.student1_id,
+            isCurrentUser: students.student1_id === profile?.id,
+          },
+          {
+            ...students.student2,
+            id: team.student2_id,
+            isCurrentUser: students.student2_id === profile?.id,
+          },
+        ]
+      : [];
+
+    const mentorData = currentProject.project.mentor_id
+      ? {
+          name: currentProject.mentor?.name || "Mentor",
+          email: currentProject.mentor?.email || "",
+          profile_pic_url: currentProject.mentor?.profile_pic_url || null,
+        }
+      : null;
+
+    teamData = { ...team, members, mentor: mentorData };
+  }
 
   if (loading.profile) {
     return (
@@ -128,7 +157,7 @@ const Dashboard = () => {
           <AlertMessage
             type={alert.type}
             message={alert.message}
-            onClose={() => setAlert((prev) => ({ ...prev, show: false }))}
+            onClose={() => setAlert(prev => ({ ...prev, show: false }))}
           />
         </div>
       )}
@@ -144,13 +173,13 @@ const Dashboard = () => {
             profile={profile}
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-            <TeamInfo
-              team={profile?.team}
-              profile={profile}
-              loading={loading.profile}
-            />
-            <div className="lg:col-span-2">
+          {/* Flex container to match heights and remove empty space */}
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-6 mb-8">
+            <div className="lg:w-1/3 flex-shrink-0">
+              <TeamInfo team={teamData} currentStudentId={profile?.id} />
+            </div>
+
+            <div className="lg:w-2/3 flex-1">
               <ProjectStatus
                 projects={formattedProjects}
                 loading={loading.projects}

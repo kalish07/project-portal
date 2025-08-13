@@ -3,10 +3,10 @@ import Cookies from 'js-cookie';
 import PartnerManagement from "../../components/InviteCenter/PartnerManagement";
 import MentorManagement from "../../components/InviteCenter/MentorManagement";
 import PartnerDetails from "../../components/InviteCenter/PartnerDetails";
-import MentorDetails from "../../components/InviteCenter/MentorDetails";
 import ConfirmationModal from "../../components/InviteCenter/ConfirmationModal";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import AlertMessage from "../../components/AlertMessage";
+import InvitationListMobile from "../../components/InviteCenter/invitation";
 import {
   fetchPartnerCandidates,
   fetchMentors,
@@ -42,7 +42,19 @@ const InviteCenter = () => {
   const [showConfirmApprove, setShowConfirmApprove] = useState(false);
   const [showConfirmReject, setShowConfirmReject] = useState(false);
 
+  const [mobileView, setMobileView] = useState("partner"); // partner | mentor
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
   const userId = Cookies.get("studentId");
+
+  // Listen for screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const showAlertMessage = useCallback((type, message, duration = 5000) => {
     setAlert({ show: true, type, message });
@@ -61,8 +73,6 @@ const InviteCenter = () => {
         fetchAllInvitations(),
         fetchUserTeams()
       ]);
-      console.log(teamsData);
-      
       setStudents(studentsData || []);
       setMentors(mentorsData || []);
       setInvitations({
@@ -182,8 +192,13 @@ const InviteCenter = () => {
     }
   };
 
+  const partnerFromList = students.find((s) => s.id === Number(selectedPartner));
+  const partner = partnerFromList || teamMate;
+  const hasConfirmedPartner =
+    Boolean(partner) &&
+    inviteStatus === "none" &&
+    selectedPartner !== "solo";
   const isMentorLocked = !selectedPartner || inviteStatus !== "none";
-  const partner = students.find((s) => s.id === Number(selectedPartner));
 
   if (loading.students || loading.mentors || loading.invites || loading.teams) {
     return (
@@ -199,125 +214,143 @@ const InviteCenter = () => {
 
       {alert.show && (
         <div className="mb-4">
-          <AlertMessage type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />
+          <AlertMessage
+            type={alert.type}
+            message={alert.message}
+            onClose={() => setAlert({ ...alert, show: false })}
+          />
         </div>
       )}
 
-      {!(partner && inviteStatus === "none") && (
+      {/* Show partner tabs until a confirmed partner exists */}
+      {!hasConfirmedPartner && (
         <div className="flex space-x-4 mb-6">
           {["find", "incoming", "sent"].map((tab) => (
             <button
               key={tab}
               onClick={() => setInviteTab(tab)}
               className={`px-4 py-2 rounded-lg font-medium ${
-                inviteTab === tab ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                inviteTab === tab
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
             >
-              {tab === "find" ? "Find Partner" : tab === "incoming" ? (
-                <>
-                  Incoming Invitations {invitations.incoming.length > 0 && (
-                    <span className="ml-2 text-sm text-red-500">({invitations.incoming.length})</span>
-                  )}
-                </>
-              ) : (
-                <>
-                  Sent Invitations {invitations.sent.length > 0 && (
-                    <span className="ml-2 text-sm text-red-500">({invitations.sent.length})</span>
-                  )}
-                </>
-              )}
+              {tab === "find"
+                ? "Find Partner"
+                : tab === "incoming"
+                ? <>
+                    Incoming Invitations{" "}
+                    {invitations.incoming.length > 0 && (
+                      <span className="ml-2 text-sm text-red-500">
+                        ({invitations.incoming.length})
+                      </span>
+                    )}
+                  </>
+                : <>
+                    Sent Invitations{" "}
+                    {invitations.sent.length > 0 && (
+                      <span className="ml-2 text-sm text-red-500">
+                        ({invitations.sent.length})
+                      </span>
+                    )}
+                  </>}
             </button>
           ))}
         </div>
       )}
 
+      {/* Mobile Toggle */}
+      {!isDesktop && (
+        <div className="flex space-x-4 mb-4">
+          <button
+            onClick={() => setMobileView("partner")}
+            className={`flex-1 py-2 rounded-lg font-medium ${
+              mobileView === "partner"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            Partner Details
+          </button>
+          <button
+            onClick={() => setMobileView("mentor")}
+            className={`flex-1 py-2 rounded-lg font-medium ${
+              mobileView === "mentor"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            Mentor Details
+          </button>
+        </div>
+      )}
+
+      {/* Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Partner Section */}
-        {inviteStatus === "none" && selectedPartner === "solo" ? (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Partner Details</h3>
-            <p className="text-gray-600 mb-4">You are working solo on this project.</p>
-            <button
-              onClick={() => {
-                setSelectedPartner(null);
-                setInviteTab("find");
-              }}
-              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              Select Team Member
-            </button>
-          </div>
-        ) : partner && inviteStatus === "none" ? (
-          <PartnerDetails partner={partner} setSelectedPartner={setSelectedPartner} setInviteTab={setInviteTab} />
-        ) : (
+        {(mobileView === "partner" || isDesktop) && (
           <>
-            {inviteTab === "find" && (
-              <PartnerManagement
-                inviteStatus={inviteStatus}
-                selectedPartner={selectedPartner}
-                filteredStudents={filteredStudents}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                sendPartnerInvite={handleSendPartnerInvite}
-                withdrawPartnerInvite={handleWithdrawPartnerInvite}
-                goSolo={handleGoSolo}
-                teammate={teamMate}
-                sentInvitations={invitations.sent}
+            {inviteStatus === "none" && selectedPartner === "solo" ? (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-medium text-gray-800 mb-4">
+                  Partner Details
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  You are working solo on this project.
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedPartner(null);
+                    setInviteTab("find");
+                  }}
+                  className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Select Team Member
+                </button>
+              </div>
+            ) : partnerFromList && inviteStatus === "none" ? (
+              <PartnerDetails
+                partner={partnerFromList}
+                setSelectedPartner={setSelectedPartner}
+                setInviteTab={setInviteTab}
               />
-            )}
-            {inviteTab === "incoming" && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Incoming Invitations</h3>
-                {invitations.incoming.length > 0 ? (
-                  <div className="space-y-4">
-                    {invitations.incoming.map((inv) => (
-                      <div key={inv.id} className="bg-gray-50 border p-4 rounded-md flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{inv.sender.name}</p>
-                          <p className="text-sm text-gray-600">{inv.sender.email}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => { setInviteToConfirm(inv.id); setShowConfirmApprove(true); }} className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700">Approve</button>
-                          <button onClick={() => { setInviteToReject(inv.id); setShowConfirmReject(true); }} className="border px-3 py-1 rounded-md hover:bg-gray-100">Reject</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No incoming invitations.</p>
+            ) : (
+              <>
+                {inviteTab === "find" && (
+                  <PartnerManagement
+                    inviteStatus={inviteStatus}
+                    selectedPartner={selectedPartner}
+                    filteredStudents={filteredStudents}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    sendPartnerInvite={handleSendPartnerInvite}
+                    withdrawPartnerInvite={handleWithdrawPartnerInvite}
+                    goSolo={handleGoSolo}
+                    teammate={teamMate}
+                    sentInvitations={invitations.sent}
+                  />
                 )}
-              </div>
-            )}
-            {inviteTab === "sent" && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Sent Invitations</h3>
-                {invitations.sent.length > 0 ? (
-                  <div className="space-y-4">
-                    {invitations.sent.map((inv) => (
-                      <div key={inv.id} className="bg-gray-50 border p-4 rounded-md flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{inv.recipient.name}</p>
-                          <p className="text-sm text-gray-600">{inv.recipient.email}</p>
-                        </div>
-                        <button onClick={() => handleWithdrawPartnerInvite(inv.id)} className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">Withdraw</button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No sent invitations.</p>
+                {inviteTab === "incoming" && (
+                  <InvitationListMobile
+                    type="incoming"
+                    invitations={invitations.incoming}
+                    onApprove={(id) => { setInviteToConfirm(id); setShowConfirmApprove(true); }}
+                    onReject={(id) => { setInviteToReject(id); setShowConfirmReject(true); }}
+                  />
                 )}
-              </div>
+
+                {inviteTab === "sent" && (
+                  <InvitationListMobile
+                    type="sent"
+                    invitations={invitations.sent}
+                    onWithdraw={handleWithdrawPartnerInvite}
+                  />
+                )}
+              </>
             )}
           </>
         )}
 
-        {/* Mentor Section */}
-        {selectedMentor && mentorRequestStatus === "none" ? (
-          <MentorDetails
-            mentor={mentors.find((m) => m.id === Number(selectedMentor)) || mentorDetails}
-            withdrawMentorRequest={handleWithdrawMentorRequest}
-          />
-        ) : (
+        {(mobileView === "mentor" || isDesktop) && (
           <MentorManagement
             mentorRequestStatus={mentorRequestStatus}
             selectedMentor={selectedMentor}
@@ -326,7 +359,8 @@ const InviteCenter = () => {
             setMentorSearchQuery={setMentorSearchQuery}
             requestMentor={handleRequestMentor}
             withdrawMentorRequest={handleWithdrawMentorRequest}
-            isMentorLocked={isMentorLocked || selectedMentor !== null}
+            isMentorLocked={isMentorLocked}
+            mentorDetails={mentorDetails}
           />
         )}
       </div>
