@@ -70,7 +70,7 @@ const ProjectStatus = ({ projects = [], semester, cardHeight }) => {
   return (
     <div
       className={`bg-white rounded-2xl shadow-md p-6 border-l-4 border-indigo-500 lg:col-span-2`}
-      style={{ minHeight: cardHeight ? `${cardHeight}px` : "auto" }}
+      style={cardHeight ? { minHeight: `${cardHeight}px` } : {}}
     >
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-800">

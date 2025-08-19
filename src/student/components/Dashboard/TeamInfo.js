@@ -4,7 +4,7 @@ const TeamInfo = ({ team, cardHeight }) => {
   const scrollRef = useRef(null);
 
   // Use passed cardHeight or default
-  const heightClass = cardHeight ? "" : "h-80";
+  const heightClass = cardHeight ? "" : "";
 
   if (!team) {
     return (

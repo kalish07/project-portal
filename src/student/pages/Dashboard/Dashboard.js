@@ -136,11 +136,21 @@ const Dashboard = () => {
     teamData = { ...team, members, mentor: mentorData };
   }
 
-  // Dynamically adjust card heights
+  // Dynamically adjust card heights only for desktop (lg and above)
   useEffect(() => {
-    const teamHeight = teamRef.current?.offsetHeight || 0;
-    const projectHeight = projectRef.current?.offsetHeight || 0;
-    setCardHeight(Math.max(teamHeight, projectHeight));
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        const teamHeight = teamRef.current?.offsetHeight || 0;
+        const projectHeight = projectRef.current?.offsetHeight || 0;
+        setCardHeight(Math.max(teamHeight, projectHeight));
+      } else {
+        setCardHeight(null); // let cards size naturally on mobile/tablet
+      }
+    };
+
+    handleResize(); // run once at mount
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [teamData, formattedProjects]);
 
   if (loading.profile) {
