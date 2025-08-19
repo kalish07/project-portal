@@ -125,7 +125,6 @@ export const fetchTeamAndProjectsByUser = async () => {
     const data = await res.json();
 
     if (!res.ok) {
-      alert(data?.message|| "Failed to fetch team and projects data");
       return null;
     }
 

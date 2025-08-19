@@ -1,12 +1,13 @@
-// src/components/Dashboard/ProjectStatus.js
 import React from "react";
-import { FiFileText, FiFile, FiFileMinus, FiCheckCircle, FiAlertCircle, FiClock } from "react-icons/fi";
+import { FiFileMinus, FiCheckCircle, FiAlertCircle, FiClock, FiFileText, FiFile } from "react-icons/fi";
 
+// Determine document state based on URL
 const getDocumentState = (url) => {
   if (!url) return "Not Uploaded";
-  return "Approved"; // Adjust if you want more granular logic
+  return "Approved"; // Adjust logic if needed
 };
 
+// Map state to colors/icons
 const getStateDetails = (state) => {
   const states = {
     Draft: {
@@ -43,6 +44,7 @@ const getStateDetails = (state) => {
   return states[state] || states.default;
 };
 
+// Single document card
 const DocumentCard = ({ type, state, version }) => {
   const stateDetails = getStateDetails(state);
   return (
@@ -63,9 +65,13 @@ const DocumentCard = ({ type, state, version }) => {
   );
 };
 
-const ProjectStatus = ({ projects = [], semester }) => {
+// ProjectStatus component with dynamic height
+const ProjectStatus = ({ projects = [], semester, cardHeight }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-indigo-500 lg:col-span-2">
+    <div
+      className={`bg-white rounded-2xl shadow-md p-6 border-l-4 border-indigo-500 lg:col-span-2`}
+      style={{ minHeight: cardHeight ? `${cardHeight}px` : "auto" }}
+    >
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-800">
           Project Status <span className="text-indigo-600">Semester {semester}</span>
@@ -76,7 +82,7 @@ const ProjectStatus = ({ projects = [], semester }) => {
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-8">
+        <div className="text-center flex flex-col justify-center items-center h-full">
           <FiFileMinus className="mx-auto text-3xl text-gray-400 mb-2" />
           <p className="text-gray-500">No projects found for this semester</p>
           <p className="text-sm text-gray-400 mt-1">Upload your project documents to get started</p>

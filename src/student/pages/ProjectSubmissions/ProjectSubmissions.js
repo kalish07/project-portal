@@ -7,7 +7,7 @@ import DocumentCard from '../../components/ProjectSubmissions/Documentcard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { documentTypes } from '../../data/mockData';
 import {
-  fetchTeamAndProjectsByUser ,
+  fetchTeamAndProjectsByUser,
   submitProjectDocumentLink,
   requestNewProject,
   withdrawProjectRequest,
@@ -45,7 +45,6 @@ const ProjectSubmissions = () => {
   const [projectType, setProjectType] = useState('pt1');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [submittingDocs, setSubmittingDocs] = useState({});
   const [studentSemester, setStudentSemester] = useState(null);
   const [newProject, setNewProject] = useState({
@@ -60,9 +59,8 @@ const ProjectSubmissions = () => {
     const loadProjects = async () => {
       try {
         setLoading(true);
-        const data = await fetchTeamAndProjectsByUser ();
+        const data = await fetchTeamAndProjectsByUser();
         const projectData = data.projects;
-        console.log(data);
 
         const formattedProjects = Object.entries(projectData || {})
           .filter(([_, value]) => value && value.project && value.project.approved_status !== 'rejected')
@@ -85,7 +83,6 @@ const ProjectSubmissions = () => {
 
         setProjects(formattedProjects);
 
-        // Assuming at least one project exists to extract semester
         const anyTeam = data.current_team;
         if (anyTeam) {
           setStudentSemester(anyTeam.current_semester);
@@ -93,7 +90,6 @@ const ProjectSubmissions = () => {
 
       } catch (err) {
         console.error(err);
-        setError('Failed to load team and project data');
       } finally {
         setLoading(false);
       }
@@ -101,7 +97,6 @@ const ProjectSubmissions = () => {
 
     loadProjects();
   }, []);
-
 
   const currentProject = projects.find(proj => proj.type === projectTypeMap[projectType]) || null;
   const currentSemesterAllowed = studentSemester ? semesterToAllowedProjectTypes[studentSemester] || [] : [];
@@ -116,7 +111,7 @@ const ProjectSubmissions = () => {
 
     try {
       setSubmittingDocs(prev => ({ ...prev, [docId]: true }));
-      
+
       await submitProjectDocumentLink(currentProject.id, {
         project_type: projectTypeMap[projectType],
         link,
@@ -124,8 +119,7 @@ const ProjectSubmissions = () => {
       });
 
       toast.success(`✅ ${docType} submitted successfully`);
-      
-      // Update local state immediately for better UX
+
       setProjects(prev => prev.map(proj => {
         if (proj.id === currentProject.id) {
           return {
@@ -137,7 +131,7 @@ const ProjectSubmissions = () => {
       }));
     } catch (err) {
       console.error(err);
-      toast.error(`❌ Failed to submit ${docType}: ${err.response?.data?.error || err.message}`);
+      toast.error(`❌ Failed to submit ${docType}`);
     } finally {
       setSubmittingDocs(prev => ({ ...prev, [docId]: false }));
     }
@@ -151,15 +145,8 @@ const ProjectSubmissions = () => {
     const { title, description, domain, customDomain, abstractLink } = newProject;
     const finalDomain = domain === "Others" ? customDomain.trim() : domain;
 
-    if (!isAllowedToSubmit) {
-      toast.error("❌ You're not allowed to submit this type of project in your current semester.");
-      return;
-    }
-
-    if (title.trim().length < 5 || description.trim().length < 20 || !finalDomain) {
-      toast.error("❌ Please enter valid project details (Title >5 chars, Description >20 chars)");
-      return;
-    }
+    if (!isAllowedToSubmit) return;
+    if (title.trim().length < 5 || description.trim().length < 20 || !finalDomain) return;
 
     try {
       await requestNewProject({
@@ -169,12 +156,11 @@ const ProjectSubmissions = () => {
         abstract_url: abstractLink,
         project_type: projectTypeMap[projectType],
       });
-      
+
       toast.success("✅ Project idea submitted successfully!");
       setNewProject({ title: '', description: '', domain: '', customDomain: '', abstractLink: '' });
-      
-      // Refresh projects
-      const data = await fetchTeamAndProjectsByUser ();
+
+      const data = await fetchTeamAndProjectsByUser();
       const { projects } = data;
       const formattedProjects = Object.entries(projects || {})
         .filter(([_, value]) => value !== null && value.approved_status !== 'rejected')
@@ -183,12 +169,8 @@ const ProjectSubmissions = () => {
           type: projectTypeMap[key] || key,
         }));
       setProjects(formattedProjects);
-
-      // Refresh the page after successful submission
-      window.location.reload();
     } catch (err) {
       console.error(err);
-      toast.error(`❌ Failed to submit project: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -197,9 +179,8 @@ const ProjectSubmissions = () => {
     try {
       await withdrawProjectRequest(currentProject.id, projectTypeMap[projectType]);
       toast.success("✅ Project withdrawn successfully");
-      
-      // Refresh projects
-      const data = await fetchTeamAndProjectsByUser ();
+
+      const data = await fetchTeamAndProjectsByUser();
       const { projects } = data;
       const formattedProjects = Object.entries(projects || {})
         .filter(([_, value]) => value !== null && value.approved_status !== 'rejected')
@@ -210,7 +191,6 @@ const ProjectSubmissions = () => {
       setProjects(formattedProjects);
     } catch (err) {
       console.error(err);
-      toast.error(`❌ Failed to withdraw project: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -218,7 +198,7 @@ const ProjectSubmissions = () => {
     return documentTypes.map(docType => {
       const docField = docTypeToFieldMap[docType];
       const hasDocument = currentProject && currentProject[docField];
-      
+
       const doc = {
         id: `${currentProject?.id}-${docType}`,
         type: docType,
@@ -243,11 +223,35 @@ const ProjectSubmissions = () => {
   };
 
   if (loading) return <LoadingSpinner />;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+
+  // If no project exists for the current type, show fallback only
+  if (!currentProject) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <svg
+  xmlns="http://www.w3.org/2000/svg"
+  className="h-24 w-24 mb-4 text-gray-400"
+  fill="none"
+  viewBox="0 0 24 24"
+  stroke="currentColor"
+>
+  <path
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    strokeWidth={2}
+    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+  />
+</svg>
+        <p className="text-lg font-medium text-gray-500">No projects available yet</p>
+        <p className="text-sm mt-1 text-gray-400">You can submit a new project idea later</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen p-6 bg-gray-50">
       <ToastContainer position="top-right" autoClose={3000} />
+
       <ProjectHeader
         projectType={projectType}
         setProjectType={setProjectType}
@@ -257,132 +261,124 @@ const ProjectSubmissions = () => {
         allowedTypes={Object.keys(projectTypeMap)}
       />
 
-      {currentProject ? (
-        currentProject.isPending ? (
-          <>
-            <div className="bg-yellow-100 p-4 rounded-md text-yellow-700 mb-4 border border-yellow-300">
-              <strong>Project Idea Pending Approval:</strong> This project is under review.
-            </div>
-            <ProjectDetails project={currentProject} />
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={handleWithdraw}
-                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors"
-              >
-                Withdraw Project Request
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <ProjectDetails project={currentProject} />
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Project Documents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getDocumentCards()}
-              </div>
-            </div>
-          </>
-        )
+      {currentProject.isPending ? (
+        <>
+          <div className="bg-yellow-100 p-4 rounded-md text-yellow-700 mb-4 border border-yellow-300">
+            <strong>Project Idea Pending Approval:</strong> This project is under review.
+          </div>
+          <ProjectDetails project={currentProject} />
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={handleWithdraw}
+              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors"
+            >
+              Withdraw Project Request
+            </button>
+          </div>
+        </>
       ) : (
         <>
-          <div className="text-center py-4 text-gray-500 text-sm italic">
-            No project found for <span className="font-semibold text-indigo-600">{projectTypeMap[projectType]}</span>.
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md mt-6 max-w-3xl mx-auto">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Request New Project</h3>
-
-            {!isAllowedToSubmit && (
-              <div className="text-red-500 text-sm mb-4">
-                You're not allowed to submit this type of project in your current semester ({studentSemester}).
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Title*</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                  value={newProject.title}
-                  onChange={(e) => handleNewProjectInputChange('title', e.target.value)}
-                  disabled={!isAllowedToSubmit}
-                  placeholder="Enter project title (min 5 characters)"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
-                <textarea
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                  value={newProject.description}
-                  onChange={(e) => handleNewProjectInputChange('description', e.target.value)}
-                  disabled={!isAllowedToSubmit}
-                  placeholder="Enter detailed description (min 20 characters)"
-                ></textarea>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Domain*</label>
-                <select
-                  value={newProject.domain}
-                  onChange={(e) => handleNewProjectInputChange('domain', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                  disabled={!isAllowedToSubmit}
-                >
-                  <option value="">Select a domain</option>
-                  {domainOptions.map((domain) => (
-                    <option key={domain} value={domain}>{domain}</option>
-                  ))}
-                </select>
-              </div>
-
-              {newProject.domain === "Others" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain*</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                    value={newProject.customDomain}
-                    onChange={(e) => handleNewProjectInputChange('customDomain', e.target.value)}
-                    disabled={!isAllowedToSubmit}
-                    placeholder="Enter your custom domain"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Abstract Google Drive Link</label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                  value={newProject.abstractLink}
-                  onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
-                  disabled={!isAllowedToSubmit}
-                />
-              </div>
-
-              <button
-                onClick={handleNewProjectSubmit}
-                disabled={!isAllowedToSubmit}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  isAllowedToSubmit
-                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                Submit Project Idea
-              </button>
+          <ProjectDetails project={currentProject} />
+          <div className="mt-8">
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Project Documents</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {getDocumentCards()}
             </div>
           </div>
         </>
       )}
+
+      {/* New Project Request Form */}
+      <div className="bg-white p-6 rounded-lg shadow-md mt-6 max-w-3xl mx-auto">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Request New Project</h3>
+
+        {!isAllowedToSubmit && (
+          <div className="text-red-500 text-sm mb-4">
+            You're not allowed to submit this type of project in your current semester ({studentSemester}).
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Project Title*</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              value={newProject.title}
+              onChange={(e) => handleNewProjectInputChange('title', e.target.value)}
+              disabled={!isAllowedToSubmit}
+              placeholder="Enter project title (min 5 characters)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
+            <textarea
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              value={newProject.description}
+              onChange={(e) => handleNewProjectInputChange('description', e.target.value)}
+              disabled={!isAllowedToSubmit}
+              placeholder="Enter detailed description (min 20 characters)"
+            ></textarea>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Domain*</label>
+            <select
+              value={newProject.domain}
+              onChange={(e) => handleNewProjectInputChange('domain', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              disabled={!isAllowedToSubmit}
+            >
+              <option value="">Select a domain</option>
+              {domainOptions.map((domain) => (
+                <option key={domain} value={domain}>{domain}</option>
+              ))}
+            </select>
+          </div>
+
+          {newProject.domain === "Others" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain*</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+                value={newProject.customDomain}
+                onChange={(e) => handleNewProjectInputChange('customDomain', e.target.value)}
+                disabled={!isAllowedToSubmit}
+                placeholder="Enter your custom domain"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Abstract Google Drive Link</label>
+            <input
+              type="url"
+              placeholder="https://drive.google.com/..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              value={newProject.abstractLink}
+              onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
+              disabled={!isAllowedToSubmit}
+            />
+          </div>
+
+          <button
+            onClick={handleNewProjectSubmit}
+            disabled={!isAllowedToSubmit}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              isAllowedToSubmit
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Submit Project Idea
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default ProjectSubmissions;
-

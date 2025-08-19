@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import StatusCards from "../../components/Dashboard/StatusCards";
 import TeamInfo from "../../components/Dashboard/TeamInfo";
 import ProjectStatus from "../../components/Dashboard/ProjectStatus";
@@ -19,12 +19,15 @@ const Dashboard = () => {
     projects: true,
     invitations: true,
   });
-
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
   const [profile, setProfile] = useState(null);
   const [rawProjects, setRawProjects] = useState({});
   const [invitations, setInvitations] = useState([]);
   const [semester, setSemester] = useState(5);
+  const [cardHeight, setCardHeight] = useState(null);
+
+  const teamRef = useRef(null);
+  const projectRef = useRef(null);
 
   const showAlert = useCallback((type, message, duration = 5000) => {
     setAlert({ show: true, type, message });
@@ -48,7 +51,7 @@ const Dashboard = () => {
       const data = await getStudentProjects();
       setRawProjects(data?.projects || {});
     } catch (error) {
-      showAlert("error", error.message);
+      showAlert("error", "No projects found for this semester");
     } finally {
       setLoading(prev => ({ ...prev, projects: false }));
     }
@@ -133,6 +136,13 @@ const Dashboard = () => {
     teamData = { ...team, members, mentor: mentorData };
   }
 
+  // Dynamically adjust card heights
+  useEffect(() => {
+    const teamHeight = teamRef.current?.offsetHeight || 0;
+    const projectHeight = projectRef.current?.offsetHeight || 0;
+    setCardHeight(Math.max(teamHeight, projectHeight));
+  }, [teamData, formattedProjects]);
+
   if (loading.profile) {
     return (
       <div className="p-4 md:p-6">
@@ -173,17 +183,16 @@ const Dashboard = () => {
             profile={profile}
           />
 
-          {/* Flex container to match heights and remove empty space */}
           <div className="flex flex-col lg:flex-row gap-4 md:gap-6 mb-8">
-            <div className="lg:w-1/3 flex-shrink-0">
-              <TeamInfo team={teamData} currentStudentId={profile?.id} />
+            <div className="lg:w-1/3 flex-shrink-0" ref={teamRef}>
+              <TeamInfo team={teamData} cardHeight={cardHeight} />
             </div>
 
-            <div className="lg:w-2/3 flex-1">
+            <div className="lg:w-2/3 flex-1" ref={projectRef}>
               <ProjectStatus
                 projects={formattedProjects}
-                loading={loading.projects}
                 semester={semester}
+                cardHeight={cardHeight}
               />
             </div>
           </div>

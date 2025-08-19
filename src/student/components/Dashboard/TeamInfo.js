@@ -1,13 +1,21 @@
 import React, { useRef } from "react";
 
-const TeamInfo = ({ team }) => {
-  const scrollRef = useRef(null); // ✅ Always called at top level
+const TeamInfo = ({ team, cardHeight }) => {
+  const scrollRef = useRef(null);
+
+  // Use passed cardHeight or default
+  const heightClass = cardHeight ? "" : "h-80";
 
   if (!team) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-indigo-500">
+      <div
+        className={`bg-white rounded-2xl shadow-lg p-6 border-l-4 border-indigo-500 flex flex-col justify-center items-center ${heightClass}`}
+        style={cardHeight ? { minHeight: `${cardHeight}px` } : {}}
+      >
         <h3 className="text-xl font-semibold text-gray-800 mb-3">Team Information</h3>
-        <p className="text-gray-600">You haven't joined a team yet.</p>
+        <p className="text-gray-600 text-center">
+          You haven't joined a team yet.
+        </p>
       </div>
     );
   }
@@ -15,13 +23,14 @@ const TeamInfo = ({ team }) => {
   const { members = [], mentor } = team;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-indigo-500">
+    <div
+      className={`bg-white rounded-2xl shadow-lg p-6 border-l-4 border-indigo-500 ${heightClass}`}
+      style={cardHeight ? { minHeight: `${cardHeight}px` } : {}}
+    >
       <h3 className="text-xl font-semibold text-gray-800 mb-6">Team Information</h3>
 
       {/* Team Members */}
       <div className="mb-6">
-        {/* <p className="text-gray-600 font-medium mb-3">Team Members</p> */}
-        
         {members.length > 0 ? (
           <>
             {/* Mobile horizontal carousel */}
@@ -88,37 +97,9 @@ const TeamInfo = ({ team }) => {
             </div>
           </>
         ) : (
-          <p className="text-gray-500 text-sm">No members in this team yet.</p>
+          <p className="text-gray-500 text-sm text-center">No members in this team yet.</p>
         )}
       </div>
-
-      {/* Mentor */}
-      
-        {/* <p className="text-gray-600 font-medium mb-3">Mentor</p> */}
-        {/* {mentor ? (
-          <div className="flex items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all shadow-sm">
-            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-100 mr-4 overflow-hidden shrink-0">
-              {mentor.profile_pic_url ? (
-                <img
-                  src={mentor.profile_pic_url}
-                  alt={mentor.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-indigo-700 font-bold text-lg">
-                  {mentor.name?.charAt(0).toUpperCase() || "M"}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 truncate">{mentor.name}</p>
-              <p className="text-gray-500 text-sm truncate">{mentor.email}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm">No mentor assigned yet.</p>
-        )} */}
-      
     </div>
   );
 };
