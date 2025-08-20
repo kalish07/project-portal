@@ -10,7 +10,6 @@ const getInitials = (name = "") => {
 };
 
 const PartnerManagement = ({
-  inviteStatus = "none",
   selectedPartner = null,
   filteredStudents = [],
   searchQuery = "",
@@ -23,6 +22,9 @@ const PartnerManagement = ({
   setInviteTab = () => {}
 }) => {
   const selectedStudent = filteredStudents.find((s) => s.id === Number(selectedPartner));
+  const hasSentInvitations = sentInvitations.length > 0;
+
+  
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
@@ -35,25 +37,38 @@ const PartnerManagement = ({
       <div className="p-4 sm:p-6">
         {/* Partner Details if teammate exists */}
         {teammate ? (
-          <PartnerDetails 
-            partner={teammate} 
-            setSelectedPartner={() => {}} 
+          <PartnerDetails
+            partner={teammate}
+            setSelectedPartner={() => {}}
             setInviteTab={setInviteTab}
           />
-        ) : inviteStatus === "outgoing" ? (
-          // Outgoing invite card
+        ) : hasSentInvitations ? (
+          // Outgoing invite card from API
           <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 sm:p-6 shadow-lg">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
               <div className="flex items-center space-x-4 mb-4 sm:mb-0">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-6 h-6 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-amber-800">Invitation Sent</p>
                   <p className="text-amber-600">
-                    Waiting for response from {selectedStudent?.student_name || "selected student"}
+                    Waiting for response from{" "}
+                    {sentInvitations[0]?.recipient?.name ||
+                      selectedStudent?.student_name ||
+                      "selected student"}
                   </p>
                 </div>
               </div>
@@ -71,8 +86,18 @@ const PartnerManagement = ({
             {/* Search */}
             <div className="relative mb-4 sm:mb-6">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 sm:pl-4 pointer-events-none">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </div>
               <input
@@ -89,7 +114,9 @@ const PartnerManagement = ({
               {filteredStudents.length > 0 ? (
                 <div className="space-y-3 sm:space-y-4">
                   {filteredStudents.map((student) => {
-                    const hasSentInvite = sentInvitations.some(inv => inv.recipient.id === student.id);
+                    const hasSentInvite = sentInvitations.some(
+                      (inv) => inv.recipient.id === student.id
+                    );
 
                     return (
                       <div
@@ -142,15 +169,30 @@ const PartnerManagement = ({
               ) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      className="w-8 h-8 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
                   </div>
                   <p className="text-lg text-gray-500 mb-2">
-                    {searchQuery ? "No matching students found" : "No students available"}
+                    {searchQuery
+                      ? "No matching students found"
+                      : "No students available"}
                   </p>
                   {searchQuery && (
-                    <button onClick={() => setSearchQuery("")} className="mt-2 text-indigo-600 hover:text-indigo-700 font-medium">
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="mt-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
                       Clear search
                     </button>
                   )}
@@ -164,8 +206,18 @@ const PartnerManagement = ({
               className="w-full group relative inline-flex items-center justify-center bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-3 sm:py-4 rounded-2xl font-semibold transition-all duration-300 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-emerald-500/25 transform hover:-translate-y-0.5 mt-4"
             >
               <span className="relative flex items-center space-x-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
                 </svg>
                 <span>Proceed Solo</span>
               </span>

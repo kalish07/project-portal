@@ -6,6 +6,7 @@ import Header from "./Header";
 import PasswordModal from "./PasswordModal";
 import { Menu } from "lucide-react";
 import { getStudentProfile } from "../../api/studentApi";
+import { useLocation } from "react-router-dom";
 
 const Layout = ({
   onLogout,
@@ -16,6 +17,24 @@ const Layout = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [profile, setProfile] = useState(null);
+
+  const location = useLocation();
+
+  const getPageTitle = () => {
+    switch (location.pathname) {
+      case "/":
+        return "Dashboard";
+      case "/invites":
+        return "Invite Centre";
+      case "/submissions":
+        return "Project Submissions";
+      case "/teams":
+        return "My Teams & Progress";
+      default:
+        return "";
+    }
+  };
+
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -40,7 +59,7 @@ const Layout = ({
         >
           <Menu className="w-6 h-6" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-800">Dashboard</h1>
+        <h1 className="text-lg font-semibold text-gray-800">{getPageTitle()}</h1>
         <div className="w-6" />
       </div>
 

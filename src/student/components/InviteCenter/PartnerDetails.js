@@ -124,7 +124,7 @@ const PartnerDetails = ({ partner, setSelectedPartner, setInviteTab }) => {
           </div>
 
           {/* Change Partner Button */}
-          <button
+          {/* <button
             onClick={() => {
               setSelectedPartner(null);
               setInviteTab("find");
@@ -138,7 +138,7 @@ const PartnerDetails = ({ partner, setSelectedPartner, setInviteTab }) => {
               </svg>
               Change Partner
             </span>
-          </button>
+          </button> */}
         </div>
       </div>
 

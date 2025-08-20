@@ -56,61 +56,67 @@ const ProjectSubmissions = () => {
     abstractLink: '',
   });
 
+  // 🔥 prevent duplicate submissions
+  const [submittingProject, setSubmittingProject] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+
   useEffect(() => {
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      setApiError(null);
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+        setApiError(null);
 
-      const data = await fetchTeamAndProjectsByUser();
-      console.log("API Response:", data);
+        const data = await fetchTeamAndProjectsByUser();
+        console.log("API Response:", data);
 
-      // 🔥 Handle backend's "no teams found" OR null
-      if (!data || data?.message === "No teams found for this user.") {
-        setApiError(404);
-        return;
+        if (!data || data?.message === "No teams found for this user.") {
+          setApiError(404);
+          return;
+        }
+
+        const projectData = data.projects;
+
+        const formattedProjects = Object.entries(projectData || {})
+  .filter(([_, value]) => value && value.project && value.project.approved_status !== 'rejected')
+  .map(([key, value]) => {
+    const { team, students, project, mentor } = value; // include mentor
+
+    return {
+      ...project,
+      id: project.id,
+      type: key,
+      teamMembers: [
+        { name: students.student1?.student_name || 'Member 1', role: 'Team Member' },
+        ...(students.student2 ? [{ name: students.student2.student_name, role: 'Team Member' }] : [])
+      ],
+      supervisor: mentor?.name || 'No Mentor Assigned',   // ✅ use mentor from response
+      mentor_email: mentor?.email || null,
+      mentor_specialized_in: mentor?.specialized_in || null,
+      mentor_profile_pic: mentor?.profile_pic_url || null,
+      isPending: project.approved_status === 'pending',
+      current_semester: team?.current_semester || null
+    };
+  });
+
+        setProjects(formattedProjects);
+
+        const anyTeam = data.current_team;
+        if (anyTeam) {
+          setStudentSemester(anyTeam.current_semester);
+        }
+
+      } catch (err) {
+        console.error(err);
+        if (err.response?.status === 404 || err.status === 404 || err.message?.includes("404")) {
+          setApiError(404);
+        }
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const projectData = data.projects;
-
-      const formattedProjects = Object.entries(projectData || {})
-        .filter(([_, value]) => value && value.project && value.project.approved_status !== 'rejected')
-        .map(([key, value]) => {
-          const { team, students, project } = value;
-
-          return {
-            ...project,
-            id: project.id,
-            type: key,
-            teamMembers: [
-              { name: students.student1?.student_name || 'Member 1', role: 'Team Member' },
-              ...(students.student2 ? [{ name: students.student2.student_name, role: 'Team Member' }] : [])
-            ],
-            supervisor: team?.mentor?.name || 'No Mentor Assigned',
-            isPending: project.approved_status === 'pending',
-            current_semester: team?.current_semester || null
-          };
-        });
-
-      setProjects(formattedProjects);
-
-      const anyTeam = data.current_team;
-      if (anyTeam) {
-        setStudentSemester(anyTeam.current_semester);
-      }
-
-    } catch (err) {
-      console.error(err);
-      if (err.response?.status === 404 || err.status === 404 || err.message?.includes("404")) {
-        setApiError(404);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadProjects();
-}, []);
+    loadProjects();
+  }, []);
 
   const currentProject = projects.find(proj => proj.type === projectTypeMap[projectType]) || null;
   const currentSemesterAllowed = studentSemester ? semesterToAllowedProjectTypes[studentSemester] || [] : [];
@@ -132,7 +138,7 @@ const ProjectSubmissions = () => {
         doc_type: docType
       });
 
-      toast.success(`✅ ${docType} submitted successfully`);
+      toast.success(`${docType} submitted successfully`);
 
       setProjects(prev => prev.map(proj => {
         if (proj.id === currentProject.id) {
@@ -145,7 +151,7 @@ const ProjectSubmissions = () => {
       }));
     } catch (err) {
       console.error(err);
-      toast.error(`❌ Failed to submit ${docType}`);
+      toast.error(`Failed to submit ${docType}`);
     } finally {
       setSubmittingDocs(prev => ({ ...prev, [docId]: false }));
     }
@@ -162,8 +168,9 @@ const ProjectSubmissions = () => {
     if (!isAllowedToSubmit) return;
     if (title.trim().length < 5 || description.trim().length < 20 || !finalDomain) return;
 
+    setSubmittingProject(true);
     try {
-      await requestNewProject({
+      const response = await requestNewProject({
         title,
         description,
         domain: finalDomain,
@@ -171,28 +178,40 @@ const ProjectSubmissions = () => {
         project_type: projectTypeMap[projectType],
       });
 
-      toast.success("✅ Project idea submitted successfully!");
+      toast.success("Project idea submitted successfully!");
       setNewProject({ title: '', description: '', domain: '', customDomain: '', abstractLink: '' });
 
-      const data = await fetchTeamAndProjectsByUser();
-      const { projects } = data;
-      const formattedProjects = Object.entries(projects || {})
-        .filter(([_, value]) => value !== null && value.approved_status !== 'rejected')
-        .map(([key, value]) => ({
-          ...value,
-          type: projectTypeMap[key] || key,
-        }));
-      setProjects(formattedProjects);
+      // add pending project immediately
+      const pendingProject = {
+        id: response.id || Date.now(),
+        title,
+        description,
+        domain: finalDomain,
+        abstract_url: abstractLink,
+        type: projectTypeMap[projectType],
+        teamMembers: [],
+        supervisor: "No Mentor Assigned",
+        isPending: true,
+        current_semester: studentSemester
+      };
+
+      setProjects(prev => [...prev, pendingProject]);
+
     } catch (err) {
       console.error(err);
+      toast.error("Failed to submit project idea");
+    } finally {
+      setSubmittingProject(false);
     }
   };
 
   const handleWithdraw = async () => {
     if (!currentProject) return;
     try {
+      setWithdrawing(true);
+
       await withdrawProjectRequest(currentProject.id, projectTypeMap[projectType]);
-      toast.success("✅ Project withdrawn successfully");
+      toast.success("Project withdrawn successfully");
 
       const data = await fetchTeamAndProjectsByUser();
       const { projects } = data;
@@ -205,6 +224,9 @@ const ProjectSubmissions = () => {
       setProjects(formattedProjects);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to withdraw project");
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -238,36 +260,35 @@ const ProjectSubmissions = () => {
 
   if (loading) return <LoadingSpinner />;
 
-  // Fallback only if API returned 404
-  if (apiError === 404) {
+  if (apiError === 404 || !studentSemester) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-20 w-20 mb-4 text-gray-400"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
-      <p className="text-lg font-semibold text-gray-600 mb-1 max-w-xs">
-        No projects available yet
-      </p>
-      <p className="text-sm text-gray-500 max-w-sm">
-        No team has been created yet. <br />
-        Please create a team to submit a project idea.
-      </p>
-    </div>
-  );
-}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-20 w-20 mb-4 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
+        <p className="text-lg font-semibold text-gray-600 mb-1 max-w-xs">
+          No projects available yet
+        </p>
+        <p className="text-sm text-gray-500 max-w-sm">
+          No team has been created yet. <br />
+          Please create a team to submit a project idea.
+        </p>
+      </div>
+    );
+  }
 
-   return (
+  return (
     <div className="min-h-screen p-6 bg-gray-50">
       <ToastContainer position="top-right" autoClose={3000} />
 
@@ -290,9 +311,36 @@ const ProjectSubmissions = () => {
             <div className="flex justify-end mt-4">
               <button
                 onClick={handleWithdraw}
-                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors"
+                disabled={withdrawing}
+                className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                  withdrawing
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-red-500 text-white hover:bg-red-600'
+                }`}
               >
-                Withdraw Project Request
+                {withdrawing && (
+                  <svg
+                    className="animate-spin h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    ></path>
+                  </svg>
+                )}
+                {withdrawing ? "Withdrawing..." : "Withdraw Project Request"}
               </button>
             </div>
           </>
@@ -308,95 +356,148 @@ const ProjectSubmissions = () => {
           </>
         )
       ) : (
-        // ✅ Show Request New Project form ONLY if no project exists
         <div className="bg-white p-6 rounded-lg shadow-md mt-6 max-w-3xl mx-auto">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">Request New Project</h3>
+  <h3 className="text-xl font-semibold text-gray-800 mb-4">Request New Project</h3>
 
-          {!isAllowedToSubmit && (
-            <div className="text-red-500 text-sm mb-4">
-              You're not allowed to submit this type of project in your current semester ({studentSemester}).
-            </div>
-          )}
+  {!isAllowedToSubmit && (
+    <div className="text-red-500 text-sm mb-4">
+      You're not allowed to submit this type of project in your current semester ({studentSemester}).
+    </div>
+  )}
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Project Title*</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                value={newProject.title}
-                onChange={(e) => handleNewProjectInputChange('title', e.target.value)}
-                disabled={!isAllowedToSubmit}
-                placeholder="Enter project title (min 5 characters)"
-              />
-            </div>
+  <div className="space-y-4">
+    {/* Project Title */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Project Title*</label>
+      <input
+        type="text"
+        className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
+          newProject.title.trim().length > 0 && newProject.title.trim().length < 5
+            ? "border-red-500"
+            : "border-gray-300"
+        }`}
+        value={newProject.title}
+        onChange={(e) => handleNewProjectInputChange('title', e.target.value)}
+        disabled={!isAllowedToSubmit || submittingProject}
+        placeholder="Enter project title (min 5 characters)"
+      />
+      {newProject.title.trim().length > 0 && newProject.title.trim().length < 5 && (
+        <p className="text-xs text-red-500 mt-1">Title must be at least 5 characters long</p>
+      )}
+    </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
-              <textarea
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                value={newProject.description}
-                onChange={(e) => handleNewProjectInputChange('description', e.target.value)}
-                disabled={!isAllowedToSubmit}
-                placeholder="Enter detailed description (min 20 characters)"
-              ></textarea>
-            </div>
+    {/* Description */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
+      <textarea
+        rows={4}
+        className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
+          newProject.description.trim().length > 0 && newProject.description.trim().length < 20
+            ? "border-red-500"
+            : "border-gray-300"
+        }`}
+        value={newProject.description}
+        onChange={(e) => handleNewProjectInputChange('description', e.target.value)}
+        disabled={!isAllowedToSubmit || submittingProject}
+        placeholder="Enter detailed description (min 20 characters)"
+      ></textarea>
+      {newProject.description.trim().length > 0 && newProject.description.trim().length < 20 && (
+        <p className="text-xs text-red-500 mt-1">Description must be at least 20 characters long</p>
+      )}
+    </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Domain*</label>
-              <select
-                value={newProject.domain}
-                onChange={(e) => handleNewProjectInputChange('domain', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                disabled={!isAllowedToSubmit}
-              >
-                <option value="">Select a domain</option>
-                {domainOptions.map((domain) => (
-                  <option key={domain} value={domain}>{domain}</option>
-                ))}
-              </select>
-            </div>
+    {/* Domain */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Domain*</label>
+      <select
+        value={newProject.domain}
+        onChange={(e) => handleNewProjectInputChange('domain', e.target.value)}
+        className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
+          !newProject.domain && submittingProject ? "border-red-500" : "border-gray-300"
+        }`}
+        disabled={!isAllowedToSubmit || submittingProject}
+      >
+        <option value="">Select a domain</option>
+        {domainOptions.map((domain) => (
+          <option key={domain} value={domain}>{domain}</option>
+        ))}
+      </select>
+      {!newProject.domain && submittingProject && (
+        <p className="text-xs text-red-500 mt-1">Domain is required</p>
+      )}
+    </div>
 
-            {newProject.domain === "Others" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain*</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                  value={newProject.customDomain}
-                  onChange={(e) => handleNewProjectInputChange('customDomain', e.target.value)}
-                  disabled={!isAllowedToSubmit}
-                  placeholder="Enter your custom domain"
-                />
-              </div>
-            )}
+    {/* Custom Domain */}
+    {newProject.domain === "Others" && (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain*</label>
+        <input
+          type="text"
+          className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
+            newProject.domain === "Others" && !newProject.customDomain.trim() && submittingProject
+              ? "border-red-500"
+              : "border-gray-300"
+          }`}
+          value={newProject.customDomain}
+          onChange={(e) => handleNewProjectInputChange('customDomain', e.target.value)}
+          disabled={!isAllowedToSubmit || submittingProject}
+          placeholder="Enter your custom domain"
+        />
+        {newProject.domain === "Others" && !newProject.customDomain.trim() && submittingProject && (
+          <p className="text-xs text-red-500 mt-1">Custom domain is required when selecting "Others"</p>
+        )}
+      </div>
+    )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Abstract Google Drive Link</label>
-              <input
-                type="url"
-                placeholder="https://drive.google.com/..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-                value={newProject.abstractLink}
-                onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
-                disabled={!isAllowedToSubmit}
-              />
-            </div>
+    {/* Abstract Link */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Abstract Google Drive Link</label>
+      <input
+        type="url"
+        placeholder="https://drive.google.com/..."
+        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+        value={newProject.abstractLink}
+        onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
+        disabled={!isAllowedToSubmit || submittingProject}
+      />
+    </div>
 
-            <button
-              onClick={handleNewProjectSubmit}
-              disabled={!isAllowedToSubmit}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                isAllowedToSubmit
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              Submit Project Idea
-            </button>
-          </div>
-        </div>
+    {/* Submit Button */}
+    <button
+      onClick={handleNewProjectSubmit}
+      disabled={!isAllowedToSubmit || submittingProject}
+      className={`px-4 py-2 rounded-md flex items-center justify-center gap-2 transition-colors ${
+        isAllowedToSubmit && !submittingProject
+          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+      }`}
+    >
+      {submittingProject && (
+        <svg
+          className="animate-spin h-5 w-5 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          ></path>
+        </svg>
+      )}
+      {submittingProject ? "Submitting..." : "Submit Project Idea"}
+    </button>
+  </div>
+</div>
       )}
     </div>
   );

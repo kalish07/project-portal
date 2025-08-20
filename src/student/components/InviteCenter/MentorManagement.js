@@ -11,7 +11,7 @@ const getInitials = (name = "") => {
 };
 
 const MentorManagement = ({
-  mentorRequestStatus = "none",
+  mentorRequestStatus = "", // "none", "pending", "approved", "rejected"
   selectedMentor = null,
   mentors = [],
   mentorSearchQuery = "",
@@ -35,6 +35,8 @@ const MentorManagement = ({
   const selectedMentorData =
     mentors.find((m) => m.id === Number(selectedMentor)) || mentorDetails;
 
+  console.log("mentorRequestStatus:", mentorRequestStatus, "mentor:", selectedMentorData);
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 px-4 sm:px-6 pt-4 pb-3 text-white">
@@ -45,8 +47,8 @@ const MentorManagement = ({
       </div>
 
       <div className="p-4 sm:p-6 space-y-4">
-        {/* Pending Request */}
-        {mentorRequestStatus === "pending" && selectedMentorData && (
+        {/* Pending Request – show amber card only if a mentor exists */}
+        {mentorRequestStatus === "pending" && selectedMentorData ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-6 shadow">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div className="flex items-center gap-3">
@@ -81,17 +83,11 @@ const MentorManagement = ({
                 Withdraw
               </button>
             </div>
-            <MentorDetails
-              className="mt-4 sm:mt-6"
-              mentor={selectedMentorData}
-              withdrawMentorRequest={withdrawMentorRequest}
-              teamApproved={false}
-            />
           </div>
-        )}
+        ) : null}
 
-        {/* Accepted mentor */}
-        {mentorRequestStatus === "accepted" && selectedMentorData && (
+        {/* approved mentor */}
+        {mentorRequestStatus === "approved" && selectedMentorData && (
           <MentorDetails
             mentor={selectedMentorData}
             withdrawMentorRequest={withdrawMentorRequest}
@@ -99,17 +95,8 @@ const MentorManagement = ({
           />
         )}
 
-        {/* No request but mentor already selected */}
-        {mentorRequestStatus === "none" && selectedMentor && selectedMentorData && (
-          <MentorDetails
-            mentor={selectedMentorData}
-            withdrawMentorRequest={withdrawMentorRequest}
-            teamApproved={true}
-          />
-        )}
-
-        {/* Search & List Mentors */}
-        {mentorRequestStatus === "none" && !selectedMentor && (
+        {/* Search & List Mentors – shown if no mentor or status is none OR pending but mentor is null */}
+        {(mentorRequestStatus === "none" || (mentorRequestStatus === "pending" && !selectedMentorData)) && (
           <>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -171,27 +158,20 @@ const MentorManagement = ({
                           <p className="text-gray-600 text-xs sm:text-sm truncate">
                             {mentor.email || "No email"}
                           </p>
-                          <div className="flex flex-wrap gap-1 mt-1 sm:mt-2">
-                            {(mentor.expertise || []).map((exp, i) => (
-                              <span
-                                key={i}
-                                className="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full font-medium border border-indigo-200"
-                              >
-                                {exp}
+                          {mentor.specialized_in ? (
+                            <div className="mt-1 sm:mt-2">
+                              <span className="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full font-medium border border-indigo-200">
+                                {mentor.specialized_in}
                               </span>
-                            ))}
-                          </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic mt-1">No specialization</p>
+                          )}
                         </div>
                       </div>
 
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium mt-2 sm:mt-0 ${
-                          mentor.available
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            : "bg-red-100 text-red-800 border border-red-200"
-                        }`}
-                      >
-                        {mentor.available ? "✓ Available" : "✗ Full"}
+                      <span className="px-3 py-1 rounded-full text-xs sm:text-sm font-medium mt-2 sm:mt-0 bg-indigo-50 text-indigo-700 border border-indigo-200 truncate max-w-[10rem]">
+                        {mentor.email || "No email"}
                       </span>
 
                       <button
@@ -224,7 +204,7 @@ const MentorManagement = ({
 };
 
 MentorManagement.propTypes = {
-  mentorRequestStatus: PropTypes.oneOf(["none", "pending", "accepted", "rejected"]),
+  mentorRequestStatus: PropTypes.oneOf(["none", "pending", "approved", "rejected"]),
   selectedMentor: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   mentors: PropTypes.array,
   mentorSearchQuery: PropTypes.string,

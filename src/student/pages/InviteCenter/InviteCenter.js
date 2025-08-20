@@ -90,22 +90,34 @@ const InviteCenter = () => {
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
   useEffect(() => {
-    const loadTeamData = async () => {
-      if (!userTeams[0] || !userId) return;
-      const team = userTeams[0];
-      const { Student1, Student2, Mentor } = team;
-      if (!Student1 || !Student2) return;
-      const teammate = String(Student1.id) === String(userId) ? Student2 : Student1;
-      setSelectedPartner(teammate.id || null);
-      setTeamMate(teammate || null);
-      setInviteStatus("none");
-      if (Mentor) {
-        setSelectedMentor(Mentor.id);
-        setMentorDetails(Mentor);
-      }
-    };
-    loadTeamData();
-  }, [userTeams, userId]);
+  const loadTeamData = async () => {
+    if (!userTeams[0] || !userId) return;
+
+    const team = userTeams[0];
+    const { Student1, Student2, Mentor, status } = team;
+
+    if (!Student1 || !Student2) return;
+
+    const teammate = String(Student1.id) === String(userId) ? Student2 : Student1;
+    setSelectedPartner(teammate.id || null);
+    setTeamMate(teammate || null);
+    setInviteStatus("none");
+
+    // ✅ set mentor info + status
+    if (Mentor) {
+      setSelectedMentor(Mentor.id);
+      setMentorDetails(Mentor);
+    }
+
+    if (status) {
+      setMentorRequestStatus(status);  // <-- direct from backend: pending / accepted / rejected
+    } else {
+      setMentorRequestStatus("none");
+    }
+  };
+
+  loadTeamData();
+}, [userTeams, userId]);
 
   const filteredStudents = students.filter(student =>
     student.student_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
