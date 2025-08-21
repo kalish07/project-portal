@@ -60,3 +60,29 @@ export const rejectInvitation = async (invitationId) => {
   });
   if (!response.ok) throw new Error("Failed to reject invitation");
 };
+
+export const changeStudentPassword = async ({
+  email,
+  currentPassword,
+  newPassword,
+  confirmPassword,
+}) => {
+  const response = await fetch(`${BASE_URL}/change-password`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      email,
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to change password");
+  }
+
+  return response.json();
+};
+

@@ -6,7 +6,11 @@ import { getStudentProfile } from "../../api/studentApi";
 const Sidebar = ({ setShowChangePassword, onLogout, onClose }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [studentProfile, setStudentProfile] = useState({
-    name: "Student",
+    student_name: "Student",
+    email: "",
+    reg_number: "",
+    department_name: "",
+    current_semester: "",
     profilePic: "/default-profile-pic.jpg",
   });
 
@@ -15,7 +19,11 @@ const Sidebar = ({ setShowChangePassword, onLogout, onClose }) => {
       try {
         const data = await getStudentProfile();
         setStudentProfile({
-          name: data.student_name || "Student",
+          student_name: data.student_name || "Student",
+          email: data.email || "",
+          reg_number: data.reg_number || "",
+          department_name: data.department_name || "",
+          current_semester: data.current_semester || "",
           profilePic: data.profile_pic_url || "/default-profile-pic.jpg",
         });
       } catch (error) {
@@ -27,6 +35,7 @@ const Sidebar = ({ setShowChangePassword, onLogout, onClose }) => {
   }, []);
 
   const getInitials = (name) => {
+    if (!name) return "S";
     const names = name.trim().split(" ");
     if (names.length === 1) return names[0][0].toUpperCase();
     return names[0][0].toUpperCase() + (names[1]?.[0]?.toUpperCase() || "");
@@ -98,16 +107,23 @@ const Sidebar = ({ setShowChangePassword, onLogout, onClose }) => {
           ) : (
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
               <span className="text-sm text-white font-medium">
-                {getInitials(studentProfile.name)}
+                {getInitials(studentProfile.student_name)}
               </span>
             </div>
           )}
           <div className="text-left">
-            <p className="text-sm font-medium text-white">{studentProfile.name}</p>
-            <p className="text-xs text-gray-400">Computer Science Major</p>
+            <p className="text-sm font-medium text-white">
+              {studentProfile.student_name}
+            </p>
+            <p className="text-xs text-gray-400">
+              {studentProfile.department_name || "Department"} —{" "}
+              Sem {studentProfile.current_semester || "-"}
+            </p>
           </div>
           <i
-            className={`fas ${isProfileMenuOpen ? "fa-chevron-up" : "fa-chevron-down"} ml-auto text-gray-400`}
+            className={`fas ${
+              isProfileMenuOpen ? "fa-chevron-up" : "fa-chevron-down"
+            } ml-auto text-gray-400`}
           ></i>
         </button>
 
@@ -115,7 +131,10 @@ const Sidebar = ({ setShowChangePassword, onLogout, onClose }) => {
           <div className="absolute bottom-14 left-4 right-4 bg-white rounded-md shadow-lg text-gray-700 divide-y divide-gray-200 z-50">
             <button
               onClick={() => {
-                setShowChangePassword(true);
+                setShowChangePassword({
+                  open: true,
+                  student: studentProfile, // ✅ pass full profile here
+                });
                 setIsProfileMenuOpen(false);
               }}
               className="w-full text-left px-4 py-2 hover:bg-gray-100"

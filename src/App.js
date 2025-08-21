@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 
 import { ToastContainer } from 'react-toastify';
+import { Toaster } from "react-hot-toast";
 import 'react-toastify/dist/ReactToastify.css';
 import { StatsProvider } from "./admin/context/StatsContext";
 
@@ -175,6 +176,7 @@ const App = () => {
         </Routes>
       </Router>
       <ToastContainer position="top-right" autoClose={3000} />
+      <Toaster position="top-right" reverseOrder={false} />
     </QueryClientProvider>
   );
 };
