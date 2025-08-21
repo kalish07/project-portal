@@ -36,7 +36,40 @@ const semesterToAllowedProjectTypes = {
 const docTypeToFieldMap = {
   'Abstract': 'abstract_url',
   'Report': 'report_pdf_url',
-  'Slide Deck': 'ppt_url'
+  'Slide Deck': 'ppt_url',
+  'Demo Video': 'demo_video_url'
+};
+
+
+// Add this function near the top of your component, after the imports
+const isValidGoogleDriveLink = (url) => {
+  if (!url) return true; // Allow empty links (optional field)
+  
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+    
+    // Validate it's a Google Drive domain
+    if (!hostname.includes('drive.google.com')) {
+      return false;
+    }
+    
+    // Additional validation for Google Drive URL patterns
+    const path = parsedUrl.pathname;
+    
+    // Common Google Drive URL patterns:
+    // - File: /file/d/{fileId}/...
+    // - Folder: /drive/folders/{folderId}
+    // - Open: /open?id={fileId}
+    const isValidPattern = 
+      path.includes('/file/d/') ||
+      path.includes('/drive/folders/') ||
+      (path === '/open' && parsedUrl.searchParams.has('id'));
+    
+    return isValidPattern;
+  } catch (error) {
+    return false; // Invalid URL format
+  }
 };
 
 const ProjectSubmissions = () => {
@@ -56,65 +89,68 @@ const ProjectSubmissions = () => {
     abstractLink: '',
   });
 
-  // 🔥 prevent duplicate submissions
   const [submittingProject, setSubmittingProject] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+
+  const [abstractLinkError, setAbstractLinkError] = useState(null);
+
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      setApiError(null);
+
+      const data = await fetchTeamAndProjectsByUser();
+      console.log("API Response:", data);
+
+      if (!data || data?.message === "No teams found for this user.") {
+        setApiError(404);
+        return;
+      }
+
+      const projectData = data.projects;
+
+      const formattedProjects = Object.entries(projectData || {})
+        .filter(([_, value]) => value && value.project && value.project.approved_status !== 'rejected')
+        .map(([key, value]) => {
+          const { team, students, project, mentor } = value;
+
+          return {
+            ...project,
+            id: project.id,
+            type: key,
+            teamMembers: [
+              { name: students.student1?.student_name || 'Member 1', role: 'Team Member' },
+              ...(students.student2 ? [{ name: students.student2.student_name, role: 'Team Member' }] : [])
+            ],
+            supervisor: mentor?.name || 'No Mentor Assigned',
+            mentor_email: mentor?.email || null,
+            mentor_specialized_in: mentor?.specialized_in || null,
+            mentor_profile_pic: mentor?.profile_pic_url || null,
+            isPending: project.approved_status === 'pending',
+            current_semester: team?.current_semester || null
+          };
+        });
+
+      setProjects(formattedProjects);
+
+      const anyTeam = data.current_team;
+      if (anyTeam) {
+        setStudentSemester(anyTeam.current_semester);
+      }
+    } catch (err) {
+      console.error(err);
+      if (err.response?.status === 404 || err.status === 404 || err.message?.includes("404")) {
+        setApiError(404);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-
-        const data = await fetchTeamAndProjectsByUser();
-        console.log("API Response:", data);
-
-        if (!data || data?.message === "No teams found for this user.") {
-          setApiError(404);
-          return;
-        }
-
-        const projectData = data.projects;
-
-        const formattedProjects = Object.entries(projectData || {})
-  .filter(([_, value]) => value && value.project && value.project.approved_status !== 'rejected')
-  .map(([key, value]) => {
-    const { team, students, project, mentor } = value; // include mentor
-
-    return {
-      ...project,
-      id: project.id,
-      type: key,
-      teamMembers: [
-        { name: students.student1?.student_name || 'Member 1', role: 'Team Member' },
-        ...(students.student2 ? [{ name: students.student2.student_name, role: 'Team Member' }] : [])
-      ],
-      supervisor: mentor?.name || 'No Mentor Assigned',   // ✅ use mentor from response
-      mentor_email: mentor?.email || null,
-      mentor_specialized_in: mentor?.specialized_in || null,
-      mentor_profile_pic: mentor?.profile_pic_url || null,
-      isPending: project.approved_status === 'pending',
-      current_semester: team?.current_semester || null
-    };
-  });
-
-        setProjects(formattedProjects);
-
-        const anyTeam = data.current_team;
-        if (anyTeam) {
-          setStudentSemester(anyTeam.current_semester);
-        }
-
-      } catch (err) {
-        console.error(err);
-        if (err.response?.status === 404 || err.status === 404 || err.message?.includes("404")) {
-          setApiError(404);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadProjects();
   }, []);
 
@@ -158,19 +194,54 @@ const ProjectSubmissions = () => {
   };
 
   const handleNewProjectInputChange = (field, value) => {
-    setNewProject(prev => ({ ...prev, [field]: value }));
-  };
+  setNewProject(prev => ({ ...prev, [field]: value }));
+  
+  // Validate abstract link in real-time
+  if (field === 'abstractLink') {
+    if (value && !isValidGoogleDriveLink(value)) {
+      setAbstractLinkError('Please enter a valid Google Drive link');
+    } else {
+      setAbstractLinkError(null);
+    }
+  }
+};
 
   const handleNewProjectSubmit = async () => {
     const { title, description, domain, customDomain, abstractLink } = newProject;
     const finalDomain = domain === "Others" ? customDomain.trim() : domain;
 
+    setAttemptedSubmit(true);
+
     if (!isAllowedToSubmit) return;
-    if (title.trim().length < 5 || description.trim().length < 20 || !finalDomain) return;
+
+
+    // Validate abstract link on submit
+    if (abstractLink && !isValidGoogleDriveLink(abstractLink)) {
+      setAbstractLinkError('Please enter a valid Google Drive link');
+      toast.error("Please provide a valid Google Drive link for the abstract");
+      return;
+    }
+
+    if (title.trim().length < 5) {
+      toast.error("Title must be at least 5 characters long");
+      return;
+    }
+    if (description.trim().length < 20) {
+      toast.error("Description must be at least 20 characters long");
+      return;
+    }
+    if (!domain) {
+      toast.error("Please select a domain");
+      return;
+    }
+    if (domain === "Others" && !customDomain.trim()) {
+      toast.error("Please enter a custom domain");
+      return;
+    }
 
     setSubmittingProject(true);
     try {
-      const response = await requestNewProject({
+      await requestNewProject({
         title,
         description,
         domain: finalDomain,
@@ -181,21 +252,8 @@ const ProjectSubmissions = () => {
       toast.success("Project idea submitted successfully!");
       setNewProject({ title: '', description: '', domain: '', customDomain: '', abstractLink: '' });
 
-      // add pending project immediately
-      const pendingProject = {
-        id: response.id || Date.now(),
-        title,
-        description,
-        domain: finalDomain,
-        abstract_url: abstractLink,
-        type: projectTypeMap[projectType],
-        teamMembers: [],
-        supervisor: "No Mentor Assigned",
-        isPending: true,
-        current_semester: studentSemester
-      };
-
-      setProjects(prev => [...prev, pendingProject]);
+      // ✅ Re-fetch full project details so mentor/team info is included
+      await loadProjects();
 
     } catch (err) {
       console.error(err);
@@ -213,15 +271,8 @@ const ProjectSubmissions = () => {
       await withdrawProjectRequest(currentProject.id, projectTypeMap[projectType]);
       toast.success("Project withdrawn successfully");
 
-      const data = await fetchTeamAndProjectsByUser();
-      const { projects } = data;
-      const formattedProjects = Object.entries(projects || {})
-        .filter(([_, value]) => value !== null && value.approved_status !== 'rejected')
-        .map(([key, value]) => ({
-          ...value,
-          type: projectTypeMap[key] || key,
-        }));
-      setProjects(formattedProjects);
+      // ✅ Re-fetch full list after withdraw
+      await loadProjects();
     } catch (err) {
       console.error(err);
       toast.error("Failed to withdraw project");
@@ -413,7 +464,7 @@ const ProjectSubmissions = () => {
         value={newProject.domain}
         onChange={(e) => handleNewProjectInputChange('domain', e.target.value)}
         className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
-          !newProject.domain && submittingProject ? "border-red-500" : "border-gray-300"
+          !newProject.domain && attemptedSubmit ? "border-red-500" : "border-gray-300"
         }`}
         disabled={!isAllowedToSubmit || submittingProject}
       >
@@ -422,7 +473,7 @@ const ProjectSubmissions = () => {
           <option key={domain} value={domain}>{domain}</option>
         ))}
       </select>
-      {!newProject.domain && submittingProject && (
+      {!newProject.domain && attemptedSubmit && (
         <p className="text-xs text-red-500 mt-1">Domain is required</p>
       )}
     </div>
@@ -434,7 +485,7 @@ const ProjectSubmissions = () => {
         <input
           type="text"
           className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
-            newProject.domain === "Others" && !newProject.customDomain.trim() && submittingProject
+            newProject.domain === "Others" && !newProject.customDomain.trim() && attemptedSubmit
               ? "border-red-500"
               : "border-gray-300"
           }`}
@@ -443,24 +494,38 @@ const ProjectSubmissions = () => {
           disabled={!isAllowedToSubmit || submittingProject}
           placeholder="Enter your custom domain"
         />
-        {newProject.domain === "Others" && !newProject.customDomain.trim() && submittingProject && (
+        {newProject.domain === "Others" && !newProject.customDomain.trim() && attemptedSubmit && (
           <p className="text-xs text-red-500 mt-1">Custom domain is required when selecting "Others"</p>
         )}
       </div>
     )}
 
     {/* Abstract Link */}
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Abstract Google Drive Link</label>
-      <input
-        type="url"
-        placeholder="https://drive.google.com/..."
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
-        value={newProject.abstractLink}
-        onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
-        disabled={!isAllowedToSubmit || submittingProject}
-      />
-    </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Abstract Google Drive Link
+        </label>
+        <input
+          type="url"
+          placeholder="https://drive.google.com/..."
+          className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 ${
+            abstractLinkError ? 'border-red-500' : 'border-gray-300'
+          }`}
+          value={newProject.abstractLink}
+          onChange={(e) => handleNewProjectInputChange('abstractLink', e.target.value)}
+          disabled={!isAllowedToSubmit || submittingProject}
+        />
+        
+        <p className="text-xs text-gray-500 mt-1">
+          Example: https://drive.google.com/file/d/FILE_ID/view
+        </p>
+        {abstractLinkError && (
+          <p className="text-xs text-red-500 mt-1">{abstractLinkError}</p>
+        )}
+        {newProject.abstractLink && !abstractLinkError && (
+          <p className="text-xs text-green-500 mt-1">✓ Valid Google Drive link</p>
+        )}
+      </div>
 
     {/* Submit Button */}
     <button

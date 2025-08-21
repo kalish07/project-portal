@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const DocumentCard = ({
   doc,
@@ -9,6 +9,57 @@ const DocumentCard = ({
   isEmpty,
   isSubmitting,
 }) => {
+  const [linkError, setLinkError] = useState(null);
+  const [isValidLink, setIsValidLink] = useState(false);
+
+  // Validate Google Drive link
+  const isValidGoogleDriveLink = (url) => {
+    if (!url) return false;
+    
+    try {
+      const parsedUrl = new URL(url);
+      const hostname = parsedUrl.hostname;
+      
+      // Validate it's a Google Drive domain
+      if (!hostname.includes('drive.google.com')) {
+        return false;
+      }
+      
+      // Additional validation for Google Drive URL patterns
+      const path = parsedUrl.pathname;
+      
+      // Common Google Drive URL patterns:
+      // - File: /file/d/{fileId}/...
+      // - Folder: /drive/folders/{folderId}
+      // - Open: /open?id={fileId}
+      const isValidPattern = 
+        path.includes('/file/d/') ||
+        path.includes('/drive/folders/') ||
+        (path === '/open' && parsedUrl.searchParams.has('id'));
+      
+      return isValidPattern;
+    } catch (error) {
+      return false; // Invalid URL format
+    }
+  };
+
+  // Validate link when it changes
+  useEffect(() => {
+    const link = documentLinks[doc.id];
+    if (link) {
+      if (isValidGoogleDriveLink(link)) {
+        setLinkError(null);
+        setIsValidLink(true);
+      } else {
+        setLinkError('Please enter a valid Google Drive link');
+        setIsValidLink(false);
+      }
+    } else {
+      setLinkError(null);
+      setIsValidLink(false);
+    }
+  }, [documentLinks[doc.id], doc.id]);
+
   const getStatusColor = () => {
     if (isEmpty) return 'bg-gray-100 text-gray-800';
     switch (doc.state) {
@@ -44,6 +95,16 @@ const DocumentCard = ({
         return 'bg-green-400';
       case 'Not Submitted': return 'bg-gray-300';
       default: return 'bg-blue-400';
+    }
+  };
+
+  const handleInputChange = (e) => {
+    onLinkChange(doc.id, e.target.value);
+  };
+
+  const handleSubmit = () => {
+    if (isValidLink) {
+      onLinkSubmit();
     }
   };
 
@@ -92,16 +153,18 @@ const DocumentCard = ({
               <input
                 type="text"
                 value={documentLinks[doc.id] || ''}
-                onChange={(e) => onLinkChange(doc.id, e.target.value)}
+                onChange={handleInputChange}
                 placeholder="https://drive.google.com/..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring focus:ring-blue-200"
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:ring focus:ring-blue-200 ${
+                  linkError ? 'border-red-500' : isValidLink ? 'border-green-500' : 'border-gray-300'
+                }`}
                 disabled={isLocked}
               />
               <button
-                onClick={() => onLinkSubmit()}
-                disabled={isLocked || !documentLinks[doc.id] || isSubmitting}
+                onClick={handleSubmit}
+                disabled={isLocked || !documentLinks[doc.id] || isSubmitting || !isValidLink}
                 className={`px-4 py-2 rounded-md text-sm flex items-center justify-center ${
-                  isLocked || !documentLinks[doc.id] || isSubmitting
+                  isLocked || !documentLinks[doc.id] || isSubmitting || !isValidLink
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
@@ -113,7 +176,20 @@ const DocumentCard = ({
                 )}
               </button>
             </div>
-            <p className="mt-1 text-xs text-gray-500">Only Google Drive links are accepted</p>
+            
+            {/* Validation messages */}
+            {linkError && (
+              <p className="mt-1 text-xs text-red-500">{linkError}</p>
+            )}
+            {isValidLink && (
+              <p className="mt-1 text-xs text-green-500">✓ Valid Google Drive link</p>
+            )}
+            {!linkError && !isValidLink && documentLinks[doc.id] && (
+              <p className="mt-1 text-xs text-gray-500">Only Google Drive links are accepted</p>
+            )}
+            {!documentLinks[doc.id] && (
+              <p className="mt-1 text-xs text-gray-500">Enter a Google Drive link to submit</p>
+            )}
           </div>
         )}
 
