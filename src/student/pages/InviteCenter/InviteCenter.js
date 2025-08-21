@@ -45,7 +45,16 @@ const InviteCenter = () => {
   const [mobileView, setMobileView] = useState("partner"); // partner | mentor
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
+  const [acceptingInviteId, setAcceptingInviteId] = useState(null);
+  const [rejectingInviteId, setRejectingInviteId] = useState(null);
+  const [withdrawingInviteId, setWithdrawingInviteId] = useState(null);
+
+  const [requestingMentorId, setRequestingMentorId] = useState(null);
+  const [withdrawingMentorId, setWithdrawingMentorId] = useState(null); 
+
   const userId = Cookies.get("studentId");
+
+  
 
   // Listen for screen size changes
   useEffect(() => {
@@ -142,37 +151,46 @@ const InviteCenter = () => {
     }
   };
 
-  const handleWithdrawPartnerInvite = async (invitationId) => {
-    try {
-      await withdrawPartnerInvite(invitationId);
-      setSelectedPartner(null);
-      setInviteStatus("none");
-      showAlertMessage('info', 'Invitation withdrawn');
-      await refreshAll();
-    } catch (err) {
-      showAlertMessage('error', err.message);
-    }
-  };
-
   const handleAcceptInvite = async (invitationId) => {
-    try {
-      await acceptPartnerInvite(invitationId);
-      await refreshAll();
-      showAlertMessage('success', 'Invitation accepted! You are now teammates.');
-    } catch (err) {
-      showAlertMessage('error', err.message);
-    }
-  };
+  try {
+    setAcceptingInviteId(invitationId);
+    await acceptPartnerInvite(invitationId);
+    await refreshAll();
+    showAlertMessage('success', 'Invitation accepted! You are now teammates.');
+  } catch (err) {
+    showAlertMessage('error', err.message);
+  } finally {
+    setAcceptingInviteId(null);
+  }
+};
 
-  const handleRejectInvite = async (invitationId) => {
-    try {
-      await rejectPartnerInvite(invitationId);
-      await refreshAll();
-      showAlertMessage('info', 'Invitation rejected');
-    } catch (err) {
-      showAlertMessage('error', err.message);
-    }
-  };
+const handleRejectInvite = async (invitationId) => {
+  try {
+    setRejectingInviteId(invitationId);
+    await rejectPartnerInvite(invitationId);
+    await refreshAll();
+    showAlertMessage('info', 'Invitation rejected');
+  } catch (err) {
+    showAlertMessage('error', err.message);
+  } finally {
+    setRejectingInviteId(null);
+  }
+};
+
+const handleWithdrawPartnerInvite = async (invitationId) => {
+  try {
+    setWithdrawingInviteId(invitationId);
+    await withdrawPartnerInvite(invitationId);
+    setSelectedPartner(null);
+    setInviteStatus("none");
+    showAlertMessage('info', 'Invitation withdrawn');
+    await refreshAll();
+  } catch (err) {
+    showAlertMessage('error', err.message);
+  } finally {
+    setWithdrawingInviteId(null);
+  }
+};
 
   const handleGoSolo = () => {
     setSelectedPartner("solo");
@@ -181,28 +199,38 @@ const InviteCenter = () => {
   };
 
   const handleRequestMentor = async (mentorId) => {
-    try {
-      await requestMentor(mentorId);
-      setSelectedMentor(String(mentorId));
-      setMentorRequestStatus("pending");
-      showAlertMessage('success', 'Mentor request sent!');
-      await refreshAll();
-    } catch (err) {
-      showAlertMessage('error', err.message);
-    }
-  };
+  try {
+    setRequestingMentorId(mentorId); // start loading
+    await requestMentor(mentorId);
+    setSelectedMentor(String(mentorId));
+    setMentorRequestStatus("pending");
+    showAlertMessage('success', 'Mentor request sent!');
+    await refreshAll();
+  } catch (err) {
+    showAlertMessage('error', err.message);
+  } finally {
+    setRequestingMentorId(null); // stop loading
+  }
+};
 
-  const handleWithdrawMentorRequest = async () => {
-    try {
-      await withdrawMentorRequest();
-      setSelectedMentor(null);
-      setMentorRequestStatus("none");
-      showAlertMessage('info', 'Mentor request withdrawn');
-      await refreshAll();
-    } catch (err) {
-      showAlertMessage('error', err.message);
-    }
-  };
+  const handleWithdrawMentorRequest = async (mentorId) => {
+  try {
+    setWithdrawingMentorId(mentorId); // start spinner
+    await withdrawMentorRequest(mentorId);
+
+    // 🔑 Reset everything locally
+    setSelectedMentor(null);
+    setMentorDetails(null);      // <-- important
+    setMentorRequestStatus("none");
+
+    showAlertMessage('info', 'Mentor request withdrawn');
+    await refreshAll();
+  } catch (err) {
+    showAlertMessage('error', err.message);
+  } finally {
+    setWithdrawingMentorId(null); // stop spinner
+  }
+};
 
   const partnerFromList = students.find((s) => s.id === Number(selectedPartner));
   const partner = partnerFromList || teamMate;
@@ -219,6 +247,9 @@ const InviteCenter = () => {
       </div>
     );
   }
+
+
+  
 
   return (
     <div className="p-6">
@@ -345,8 +376,10 @@ const InviteCenter = () => {
                   <InvitationListMobile
                     type="incoming"
                     invitations={invitations.incoming}
-                    onApprove={(id) => { setInviteToConfirm(id); setShowConfirmApprove(true); }}
-                    onReject={(id) => { setInviteToReject(id); setShowConfirmReject(true); }}
+                    onApprove={handleAcceptInvite}
+                    onReject={handleRejectInvite}
+                    acceptingInviteId={acceptingInviteId}
+                    rejectingInviteId={rejectingInviteId}
                   />
                 )}
 
@@ -355,6 +388,7 @@ const InviteCenter = () => {
                     type="sent"
                     invitations={invitations.sent}
                     onWithdraw={handleWithdrawPartnerInvite}
+                    withdrawingInviteId={withdrawingInviteId}
                   />
                 )}
               </>
@@ -373,6 +407,8 @@ const InviteCenter = () => {
             withdrawMentorRequest={handleWithdrawMentorRequest}
             isMentorLocked={isMentorLocked}
             mentorDetails={mentorDetails}
+            requestingMentorId={requestingMentorId}
+            withdrawingMentorId={withdrawingMentorId}
           />
         )}
       </div>

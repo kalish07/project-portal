@@ -1,6 +1,23 @@
 import React from "react";
 
-const InvitationListMobile = ({ invitations = [], type = "incoming", onApprove, onReject, onWithdraw }) => {
+const InvitationListMobile = ({
+  invitations = [],
+  type = "incoming",
+  onApprove,
+  onReject,
+  onWithdraw,
+  acceptingInviteId = null,
+  rejectingInviteId = null,
+  withdrawingInviteId = null,
+}) => {
+  const getInitials = (name = "") =>
+    name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 px-6 pt-6 pb-4 text-white">
@@ -22,12 +39,13 @@ const InvitationListMobile = ({ invitations = [], type = "incoming", onApprove, 
                 key={inv.id}
                 className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:shadow-md transition-all duration-200"
               >
+                {/* Avatar & Info */}
                 <div className="flex items-center space-x-3 mb-3 sm:mb-0 flex-1 min-w-0">
                   <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center shadow-md">
                     <span className="text-lg font-semibold text-indigo-600">
                       {type === "incoming"
-                        ? inv.sender?.name?.split(" ").map(w => w[0]).join("").slice(0, 2)
-                        : inv.recipient?.name?.split(" ").map(w => w[0]).join("").slice(0, 2)}
+                        ? getInitials(inv.sender?.name)
+                        : getInitials(inv.recipient?.name)}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -40,28 +58,114 @@ const InvitationListMobile = ({ invitations = [], type = "incoming", onApprove, 
                   </div>
                 </div>
 
+                {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   {type === "incoming" ? (
                     <>
+                      {/* Approve Button */}
                       <button
                         onClick={() => onApprove(inv.id)}
-                        className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700 transition-all"
+                        disabled={acceptingInviteId === inv.id}
+                        className={`px-4 py-2 rounded-lg text-white font-medium transition ${
+                          acceptingInviteId === inv.id
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700"
+                        }`}
                       >
-                        Approve
+                        {acceptingInviteId === inv.id ? (
+                          <svg
+                            className="animate-spin h-5 w-5 text-white mx-auto"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            ></path>
+                          </svg>
+                        ) : (
+                          "Approve"
+                        )}
                       </button>
+
+                      {/* Reject Button */}
                       <button
                         onClick={() => onReject(inv.id)}
-                        className="w-full sm:w-auto border border-gray-300 px-4 py-2 rounded-xl hover:bg-gray-100 transition-all"
+                        disabled={rejectingInviteId === inv.id}
+                        className={`w-full sm:w-auto border border-gray-300 px-4 py-2 rounded-xl transition-all ${
+                          rejectingInviteId === inv.id
+                            ? "bg-gray-200 cursor-not-allowed text-gray-500"
+                            : "hover:bg-gray-100"
+                        }`}
                       >
-                        Reject
+                        {rejectingInviteId === inv.id ? (
+                          <svg
+                            className="animate-spin h-5 w-5 text-gray-600 mx-auto"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            ></path>
+                          </svg>
+                        ) : (
+                          "Reject"
+                        )}
                       </button>
                     </>
                   ) : (
                     <button
                       onClick={() => onWithdraw(inv.id)}
-                      className="w-full sm:w-auto bg-red-500 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-600 transition-all"
+                      disabled={withdrawingInviteId === inv.id}
+                      className={`w-full sm:w-auto bg-red-500 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-600 transition-all ${
+                        withdrawingInviteId === inv.id ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
-                      Withdraw
+                      {withdrawingInviteId === inv.id ? (
+                        <svg
+                          className="animate-spin h-5 w-5 text-white mx-auto"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          ></path>
+                        </svg>
+                      ) : (
+                        "Withdraw"
+                      )}
                     </button>
                   )}
                 </div>
