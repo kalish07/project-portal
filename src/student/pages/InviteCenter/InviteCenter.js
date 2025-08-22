@@ -17,7 +17,8 @@ import {
   requestMentor,
   withdrawMentorRequest,
   fetchUserTeams,
-  withdrawPartnerInvite
+  withdrawPartnerInvite,
+  createSoloTeam
 } from "../../api/inviteCenterApi";
 
 const InviteCenter = () => {
@@ -100,33 +101,35 @@ const InviteCenter = () => {
 
   useEffect(() => {
   const loadTeamData = async () => {
-    if (!userTeams[0] || !userId) return;
+    if (!userTeams[0] || !userId) return; // no teams yet
 
-    const team = userTeams[0];
+    const team = userTeams[0]; // get the first team
     const { Student1, Student2, Mentor, status } = team;
 
-    if (!Student1 || !Student2) return;
+    if (!Student1 || !Student2) return; // incomplete team
 
+    // determine teammate
     const teammate = String(Student1.id) === String(userId) ? Student2 : Student1;
+
+    // update state for partner
     setSelectedPartner(teammate.id || null);
     setTeamMate(teammate || null);
+
+    // ✅ reset invite status now that a team exists
     setInviteStatus("none");
 
-    // ✅ set mentor info + status
+    // update mentor info if exists
     if (Mentor) {
       setSelectedMentor(Mentor.id);
       setMentorDetails(Mentor);
     }
 
-    if (status) {
-      setMentorRequestStatus(status);  // <-- direct from backend: pending / accepted / rejected
-    } else {
-      setMentorRequestStatus("none");
-    }
+    // set mentor request status
+    setMentorRequestStatus(status || "none");
   };
 
   loadTeamData();
-}, [userTeams, userId]);
+}, [userTeams, userId]); // triggers whenever userTeams is updated
 
   const filteredStudents = students.filter(student =>
     student.student_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -153,14 +156,20 @@ const InviteCenter = () => {
 
   const handleAcceptInvite = async (invitationId) => {
   try {
-    setAcceptingInviteId(invitationId);
-    await acceptPartnerInvite(invitationId);
+    setAcceptingInviteId(invitationId); 
+    await acceptPartnerInvite(invitationId); 
+    
+    // After accepting, we need to refresh to get the updated team data
     await refreshAll();
+    
+    // Switch to the "find" tab to show partner details
+    setInviteTab("find");
+    
     showAlertMessage('success', 'Invitation accepted! You are now teammates.');
   } catch (err) {
     showAlertMessage('error', err.message);
   } finally {
-    setAcceptingInviteId(null);
+    setAcceptingInviteId(null); 
   }
 };
 
@@ -192,11 +201,22 @@ const handleWithdrawPartnerInvite = async (invitationId) => {
   }
 };
 
-  const handleGoSolo = () => {
-    setSelectedPartner("solo");
+  const handleGoSolo = async () => {
+  try {
+    setInviteStatus("loading"); 
+    const data = await createSoloTeam();
+
+    
+    setTeamMate({ id: userId, student_name: "You" }); 
+    setSelectedPartner(userId);
     setInviteStatus("none");
-    showAlertMessage('info', 'You are now working solo');
-  };
+
+    showAlertMessage("success", "Solo team created successfully!");
+    await refreshAll(); 
+  } catch (err) {
+    showAlertMessage("error", err.response?.data?.message || err.message);
+  }
+};
 
   const handleRequestMentor = async (mentorId) => {
   try {

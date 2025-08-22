@@ -10,14 +10,16 @@ import {
   getStudentProjects,
   getStudentInvitations,
   acceptInvitation,
-  rejectInvitation,
+  rejectInvitation, 
 } from "../../api/studentApi";
+import { fetchUserTeams } from "../../api/inviteCenterApi"; 
 
 const Dashboard = () => {
   const [loading, setLoading] = useState({
     profile: true,
     projects: true,
     invitations: true,
+    team: true, // added team loading
   });
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
   const [profile, setProfile] = useState(null);
@@ -25,6 +27,7 @@ const Dashboard = () => {
   const [invitations, setInvitations] = useState([]);
   const [semester, setSemester] = useState(5);
   const [cardHeight, setCardHeight] = useState(null);
+  const [teamData, setTeamData] = useState(null); // ✅ team state
 
   const teamRef = useRef(null);
   const projectRef = useRef(null);
@@ -69,6 +72,46 @@ const Dashboard = () => {
     }
   }, [showAlert]);
 
+  // ✅ fetch team using new API
+  const fetchTeam = useCallback(async () => {
+    try {
+      const response = await fetchUserTeams();
+      const userTeam = response.teams?.[0]; // assuming first team for current semester
+      if (userTeam) {
+        const members = [
+          {
+            ...userTeam.Student1,
+            id: userTeam.student1_id,
+            isCurrentUser: userTeam.student1_id === profile?.id,
+          },
+          userTeam.Student2
+            ? {
+                ...userTeam.Student2,
+                id: userTeam.student2_id,
+                isCurrentUser: userTeam.student2_id === profile?.id,
+              }
+            : null,
+        ].filter(Boolean);
+
+        const mentorData = userTeam.Mentor
+          ? {
+              name: userTeam.Mentor.name,
+              email: userTeam.Mentor.email,
+              profile_pic_url: userTeam.Mentor.profile_pic_url,
+            }
+          : null;
+
+        setTeamData({ ...userTeam, members, mentor: mentorData });
+      } else {
+        setTeamData(null);
+      }
+    } catch (error) {
+      showAlert("error", "Failed to fetch your team");
+    } finally {
+      setLoading(prev => ({ ...prev, team: false }));
+    }
+  }, [profile, showAlert]);
+
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
@@ -77,14 +120,16 @@ const Dashboard = () => {
     if (semester) {
       fetchProjects();
       fetchInvitations();
+      fetchTeam(); // ✅ fetch team once semester/profile is ready
     }
-  }, [semester, fetchProjects, fetchInvitations]);
+  }, [semester, fetchProjects, fetchInvitations, fetchTeam]);
 
   const handleAcceptInvitation = async (invitationId) => {
     try {
       await acceptInvitation(invitationId);
       showAlert("success", "Invitation accepted successfully");
       fetchInvitations();
+      fetchTeam(); // refresh team after accepting invitation
     } catch (error) {
       showAlert("error", error.message);
     }
@@ -100,43 +145,10 @@ const Dashboard = () => {
     }
   };
 
-  // Convert raw projects to array
   const formattedProjects = Object.entries(rawProjects || {})
     .filter(([_, value]) => value && value.project)
     .map(([type, value]) => ({ ...value, type }));
 
-  // Build current team members and mentor from first project with a team
-  const currentProject = formattedProjects.find(p => p.team);
-  let teamData = null;
-  if (currentProject) {
-    const { team, students } = currentProject;
-    const members = students
-      ? [
-          {
-            ...students.student1,
-            id: team.student1_id,
-            isCurrentUser: students.student1_id === profile?.id,
-          },
-          {
-            ...students.student2,
-            id: team.student2_id,
-            isCurrentUser: students.student2_id === profile?.id,
-          },
-        ]
-      : [];
-
-    const mentorData = currentProject.project.mentor_id
-      ? {
-          name: currentProject.mentor?.name || "Mentor",
-          email: currentProject.mentor?.email || "",
-          profile_pic_url: currentProject.mentor?.profile_pic_url || null,
-        }
-      : null;
-
-    teamData = { ...team, members, mentor: mentorData };
-  }
-
-  // Dynamically adjust card heights only for desktop (lg and above)
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -144,16 +156,16 @@ const Dashboard = () => {
         const projectHeight = projectRef.current?.offsetHeight || 0;
         setCardHeight(Math.max(teamHeight, projectHeight));
       } else {
-        setCardHeight(null); // let cards size naturally on mobile/tablet
+        setCardHeight(null);
       }
     };
 
-    handleResize(); // run once at mount
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [teamData, formattedProjects]);
 
-  if (loading.profile) {
+  if (loading.profile || loading.team) {
     return (
       <div className="p-4 md:p-6">
         <LoadingSpinner />

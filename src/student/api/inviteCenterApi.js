@@ -1,4 +1,8 @@
 import Cookies from 'js-cookie';
+import axios from "axios";
+
+axios.defaults.baseURL = "https://project-portal-backend-xtrf.onrender.com/api"; 
+axios.defaults.headers.common["Content-Type"] = "application/json";
 
 const BASE_URL = "https://project-portal-backend-xtrf.onrender.com/api";
 
@@ -31,6 +35,24 @@ export const fetchAllInvitations = async () => {
     incomingInvitations: data.incomingInvitations || []
   };
 };
+
+// solo invite api
+export const createSoloTeam = async () => {
+  const token = Cookies.get("token"); // if you are using auth tokens
+  const response = await axios.post(
+    "/team/solo",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data;
+};
+
+
+
 
 export const sendPartnerInvite = async (recipientId) => {
   const res = await fetch(`${BASE_URL}/students/send-invitation`, {
